@@ -1,5 +1,6 @@
 # Test It - Prêt de livres
 
+# Mohamad AL AKOUM - Le code est dans la branche *`master-new`*
 API REST Spring Boot (Java 25) de prêt de livres pour une bibliothèque.
 **Le code est fourni : votre travail est d'écrire les tests, ce sont eux qui vous diront si tout va bien.**
 
@@ -54,11 +55,24 @@ Base H2 en mémoire, console sur http://localhost:8080/h2-console
 | # | Fichier | Type | Test minimum |
 |---|---|---|---|
 | 1 | `BookServiceTest` | unitaire, tout est mocké (Mockito), sans Spring ni base | Emprunter un livre disponible : vérifiez le statut, l'emprunteur **et les mails envoyés** |
-| 2 | `BookRepositoryIT` | JPA, vraie base H2 | `findByMemberAndStatus` avec **deux membres** et plusieurs livres |
+| 2 | `BookRepositoryITTest` | JPA, vraie base H2 | `findByMemberAndStatus` avec **deux membres** et plusieurs livres |
 | 3 | `BookServiceIT` | contexte Spring complet, vraie base | Emprunter puis rendre un livre, et relire le résultat |
 | 4 | `BookControllerIT` | MockMvc | Créer un livre puis l'emprunter, et vérifier les réponses |
 
 Un test qui échoue n'est pas un problème : c'est **ce que vous cherchez**. Notez ce qu'il révèle (le code ou le test ?) puis corrigez.
+
+### Ce que nos tests ont révélé
+
+À chaque fois, c'est **le code** qui était en cause, pas le test.
+
+| Test | Échec observé | Cause (code) | Correction |
+|---|---|---|---|
+| `BookServiceTest` | `Argument(s) are different! Wanted: findByMemberAndStatus(1, EMPRUNTE)` mais appelé avec `RENDU` | `BookService.borrowBook` cherchait les emprunts en cours avec `Status.RENDU` | `Status.EMPRUNTE` |
+| `BookServiceTest` | `Mockito.verify(mailService).sendMail(...)` ne passe pas | `borrowBook` n'envoyait aucun mail au membre | Ajout de `mailService.sendMail(member, ...)` |
+| `BookRepositoryITTest` | Le contexte Spring ne démarre pas : `Attribute 'constraintName' must appear on element 'addForeignKeyConstraint'` | Schéma Liquibase invalide : foreign keys sans `constraintName`, `referent_id` en `uuid`, colonne `user` au lieu de `username`, table `members` vs entité `Member`, `SEQUENCE` sans séquence | Foreign keys supprimées (consigne du prof), `referent_id` en `bigint`, colonne `username`, `@Table(name = "members")` sur `Member`, `GenerationType.IDENTITY` sur `Book` |
+| `BookRepositoryITTest` | `Expecting actual: [1, 2, 3] to contain exactly: [1]` | La requête de `findByMemberAndStatus` utilisait `OR` : elle renvoyait tous les livres du membre **plus** tous les livres empruntés par les autres | `OR` remplacé par `AND` |
+| `BookControllerIT` | `No value at JSON path "$.id"` (réponse vide) | `BookController.createBook` passait `request.title` comme auteur | `createBook(request.title, request.author)` |
+| `BookControllerIT` | `Mockito.verify(bookService).borrowBook(1, 1)` ne passe pas | `POST /books/{id}/borrow` appelait `bookService.returnBook` | Appel de `bookService.borrowBook` |
 
 ## Bonus (si vous avez fini)
 
